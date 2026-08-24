@@ -2,6 +2,7 @@ package clock
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,12 +61,38 @@ func (s *Scheduler) Cancel(id string) {
 	}
 }
 
+// CancelPlan withdraws every step belonging to planID from the planning
+// coordination layer (planItems) and cancels any running task registered
+// under the same id. Without this, a window withdrawal recorded at the
+// operator console would leave the post-proof bake steps visible to the
+// planner: the cancellation stopped at the task layer and never reached the
+// plan ledger.
+func (s *Scheduler) CancelPlan(planID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if cancel, ok := s.tasks[planID]; ok {
+		cancel()
+		delete(s.tasks, planID)
+	}
+	prefix := planID + ":"
+	for key := range s.planItems {
+		if strings.HasPrefix(key, prefix) {
+			delete(s.planItems, key)
+		}
+	}
+}
+
 func (s *Scheduler) CancelAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for id, cancel := range s.tasks {
 		cancel()
 		delete(s.tasks, id)
+	}
+	// A full withdrawal must reach the planning coordination layer too;
+	// otherwise ItemCount keeps reporting retired bake steps to the planner.
+	for key := range s.planItems {
+		delete(s.planItems, key)
 	}
 }
 
@@ -116,6 +143,19 @@ func (s *Scheduler) InstallBurnPlanCtx(ctx context.Context, settings model.Plant
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// A new batch installing a fresh burn plan must retire any stale steps
+	// left over in the plan coordination ledger for the same planID (for
+	// example, a previous batch whose warmup window was withdrawn but whose
+	// steps were never cleared). Otherwise the planner sees the new steps
+	// layered on top of the retired ones.
+	s.mu.Lock()
+	prefix := planID + ":"
+	for key := range s.planItems {
+		if strings.HasPrefix(key, prefix) {
+			delete(s.planItems, key)
+		}
+	}
+	s.mu.Unlock()
 	for _, e := range PlanBurnSchedule(s.clk, settings, planID) {
 		if err := ctx.Err(); err != nil {
 			return err
