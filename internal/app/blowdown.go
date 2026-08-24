@@ -33,7 +33,7 @@ func (a *App) SteamrelAfterShutdown(ctx context.Context, openingPct float64) err
 		return fmt.Errorf("plant not shut down")
 	}
 	if openingPct >= maxSteamrelOpeningPct {
-		return fmt.Errorf("unknown fault")
+		return fmt.Errorf("steamrel: %w", model.ErrSteamrelLimit)
 	}
 	return nil
 }
