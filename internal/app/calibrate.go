@@ -9,16 +9,14 @@ var CalibrateProbe func(ctx context.Context) error
 
 func (a *App) Calibrate(ctx context.Context, holder string) error {
 	now := a.clk.Now()
-	lease, err := a.interlock.Leases().Acquire(a.cfg.UnitID, holder, now)
-	if err != nil {
-		return err
-	}
-	if CalibrateProbe != nil {
-		if err := CalibrateProbe(ctx); err != nil {
-			return fmt.Errorf("calibrate: %w", err)
+	return a.interlock.Leases().WithLease(ctx, a.cfg.UnitID, holder, now, func(ctx context.Context) error {
+		if CalibrateProbe != nil {
+			if err := CalibrateProbe(ctx); err != nil {
+				a.journalEvent("calibrate_failed", storePayload("holder", holder))
+				return fmt.Errorf("calibrate: %w", err)
+			}
 		}
-	}
-	lease.Release()
-	a.journalEvent("calibrate", fmt.Sprintf("{\"holder\":\"%s\"}", holder))
-	return nil
+		a.journalEvent("calibrate", storePayload("holder", holder))
+		return nil
+	})
 }
