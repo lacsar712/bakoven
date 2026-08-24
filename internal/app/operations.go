@@ -170,8 +170,13 @@ func (a *App) EnterService(ctx context.Context, holder string) error {
 func (a *App) OnBakeLoss(ctx context.Context, holder string) error {
 	_ = holder
 	snap := a.Snapshot()
-	if err := interlock.CheckBakeLoss(snap.Burner); err != nil {
-		return fmt.Errorf("interlock denied")
+	// CheckBakeLoss returns ErrBakeLoss when the rackframe has already dropped
+	// (BurnerStable && RackframeTempF < 600). That confirmation is the precondition
+	// for the dedicated bake-loss reset, not a reason to deny it — inverting the
+	// check locks the operator out at exactly the moment the interlock side has
+	// registered the loss. Permit only when bake loss is active.
+	if interlock.CheckBakeLoss(snap.Burner) == nil {
+		return fmt.Errorf("interlock denied: bake loss not active")
 	}
 	return nil
 }
