@@ -72,9 +72,6 @@ func (f *OvenlineFSM) Dispatch(ctx context.Context, event PlantEvent) (model.Pla
 	}
 	next, ok := NextState(f.state, event)
 	if !ok {
-		if f.hooks != nil {
-			_ = f.hooks.RunAfter(ctx, f.state, f.state, event)
-		}
 		return f.state, fmt.Errorf("%s from %s: %w", event, f.state, ErrIllegalTransition)
 	}
 	if event == EvIgnite && !f.doughPermissive {
