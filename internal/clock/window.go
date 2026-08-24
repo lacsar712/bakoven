@@ -39,7 +39,7 @@ func NewProofWindow(clk ProcessClock) *ProofWindow {
 }
 
 func (p *ProofWindow) Ready(startedAt time.Time) bool {
-	return time.Since(startedAt) >= model.ProofWindow
+	return p.clk.Since(startedAt) >= model.ProofWindow
 }
 
 func (p *ProofWindow) Require(startedAt time.Time) error {
