@@ -18,24 +18,25 @@ func (a *App) advanceClock(d time.Duration) {
 	}
 }
 
-var activeDoughCancel context.CancelFunc
-
 func (a *App) bindDoughLoop(holder string, ctx context.Context) context.Context {
 	a.mu.Lock()
-	if activeDoughCancel != nil {
-		activeDoughCancel()
+	// Stop-credential (dough-loop cancel) is keyed per unit+holder so that
+	// tripping or re-ramping one oven cannot cancel another oven's dough loop.
+	if cancel, ok := a.doughLoopCancels[holder]; ok {
+		cancel()
+		delete(a.doughLoopCancels, holder)
 	}
 	child, cancel := context.WithCancel(ctx)
-	activeDoughCancel = cancel
+	a.doughLoopCancels[holder] = cancel
 	a.mu.Unlock()
 	return child
 }
 
 func (a *App) cancelDoughLoop(holder string) {
 	a.mu.Lock()
-	if activeDoughCancel != nil {
-		activeDoughCancel()
-		activeDoughCancel = nil
+	if cancel, ok := a.doughLoopCancels[holder]; ok {
+		cancel()
+		delete(a.doughLoopCancels, holder)
 	}
 	a.mu.Unlock()
 }
