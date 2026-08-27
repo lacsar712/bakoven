@@ -1,6 +1,6 @@
 # bakoven
 
-Industrial bakery oven zone temperature control with operator HMI under internal/web.
+bakoven 是一套工业烘焙烤箱多温区工业过程控制系统，用于温区加热、烘烤曲线与操作员 HMI 联锁。
 
 ## Requirements
 
